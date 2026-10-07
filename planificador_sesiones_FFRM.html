@@ -1,0 +1,915 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Planificador de sesiones</title>
+<style>
+:root{
+  --red:#c8102e; --red-d:#9c0c23; --ink:#1d2329; --muted:#66707a; --line:#d9dde2;
+  --bg:#f3f4f6; --card:#ffffff; --soft:#f7f8fa; --ok:#1a7f4b; --warn:#b26a00; --bad:#b3261e;
+  --radius:12px;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{-webkit-print-color-adjust:exact;print-color-adjust:exact;background:var(--bg);color:var(--ink);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.top{position:sticky;top:0;z-index:20;background:var(--red);color:#fff;display:flex;align-items:center;gap:12px;padding:10px 16px;flex-wrap:wrap;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.brand{font-weight:800;letter-spacing:.3px;font-size:16px;margin-right:8px}
+.brand small{display:block;font-weight:500;opacity:.85;font-size:11px;letter-spacing:.5px;text-transform:uppercase}
+.nav{display:flex;gap:4px;background:rgba(255,255,255,.15);padding:3px;border-radius:10px}
+.nav button{background:none;border:0;color:#fff;padding:6px 12px;border-radius:8px;font-weight:600}
+.nav button.on{background:#fff;color:var(--red)}
+.top .sp{flex:1}
+.tbtn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.35);color:#fff;padding:6px 10px;border-radius:8px;font-weight:600}
+.tbtn:hover{background:rgba(255,255,255,.28)}
+#saved{font-size:12px;opacity:0;transition:opacity .3s}
+main{max-width:1400px;margin:0 auto;padding:16px}
+.view{display:none}.view.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius)}
+.btn{background:#fff;border:1px solid var(--line);padding:6px 11px;border-radius:8px;font-weight:600}
+.btn:hover{border-color:#aab2bb}
+.btn.pri{background:var(--red);border-color:var(--red);color:#fff}
+.btn.pri:hover{background:var(--red-d)}
+.btn.sm{padding:3px 8px;font-size:12px}
+.btn.ghost{border-color:transparent;background:none}
+.btn.ghost:hover{background:var(--soft)}
+label.f{display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+label.f input,label.f select,label.f textarea{font-size:14px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:#fff;width:100%}
+label.f textarea{resize:vertical;min-height:56px}
+input:focus,select:focus,textarea:focus{outline:2px solid #f3a6b2;border-color:var(--red)}
+
+/* cabecera sesión */
+.shead{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;padding:14px}
+.shead .wide{grid-column:span 6}
+@media(max-width:900px){.shead{grid-template-columns:repeat(2,minmax(0,1fr))}.shead .wide{grid-column:span 2}}
+
+.layout{display:grid;grid-template-columns:270px minmax(0,1fr);gap:16px;margin-top:16px;align-items:start}
+@media(max-width:900px){.layout{grid-template-columns:1fr}}
+
+/* plantilla */
+.roster{padding:12px;position:sticky;top:70px}
+.roster h3,.sec h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+.rcount{font-size:12px;color:var(--muted);margin-bottom:8px}
+.rrow{display:grid;grid-template-columns:24px 1fr auto;gap:6px;align-items:center;margin-bottom:4px}
+.rrow .num{font-weight:800;text-align:right;font-size:13px}
+.rrow input{border:1px solid var(--line);border-radius:6px;padding:4px 6px;width:100%;font-size:13px;text-transform:uppercase}
+.st{border:1px solid;border-radius:6px;padding:2px 6px;font-size:11px;font-weight:700;white-space:nowrap;min-width:62px;background:#fff}
+.st.disp{color:var(--ok);border-color:#9bd3b5}
+.st.les{color:var(--bad);border-color:#efb1ac;background:#fdf1f0}
+.st.aus{color:#58606a;border-color:#c9ced4;background:#f0f1f3}
+.st.lim{color:var(--warn);border-color:#ecc98f;background:#fff7e8}
+.rrow.off input{text-decoration:line-through;color:#8a929b}
+
+/* tareas */
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.toolbar h2{margin:0 auto 0 0;font-size:18px}
+.tasks{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:14px}
+@media(max-width:500px){.tasks{grid-template-columns:1fr}}
+.task{overflow:hidden;display:flex;flex-direction:column}
+.task .th{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.task .tn{background:#111;color:#fff;font-weight:800;border-radius:7px;padding:3px 9px;font-size:13px;white-space:nowrap}
+.task .tdur{font-weight:800;color:var(--red);white-space:nowrap}
+.task .ttl{font-weight:700;padding:8px 12px 0;font-size:15px}
+.task .thumb{padding:8px 12px;cursor:pointer}
+.task .thumb{display:flex;justify-content:center}
+.task .thumb svg{width:100%;height:auto;max-height:300px;display:block;border-radius:8px}
+.task .meta{padding:0 12px 8px;font-size:13px;color:#39424b}
+.task .meta b{color:var(--ink)}
+.task .tf{display:flex;gap:4px;flex-wrap:wrap;padding:8px 12px;border-top:1px solid var(--line);background:var(--soft);margin-top:auto}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;color:#fff;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
+.badge i{font-style:normal}
+.tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.tag{font-size:11px;background:#eef0f3;border:1px solid #dfe3e7;border-radius:999px;padding:1px 8px}
+.empty{padding:30px;text-align:center;color:var(--muted);border:2px dashed var(--line);border-radius:var(--radius)}
+
+/* resumen */
+.summary{padding:12px 14px;margin-top:16px}
+.bar{display:flex;height:26px;border-radius:7px;overflow:hidden;background:#eceef1;margin:6px 0 8px}
+.bar div{display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;overflow:hidden;white-space:nowrap;border-right:2px solid #fff}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend em{width:12px;height:12px;border-radius:3px;display:inline-block}
+.total{font-size:22px;font-weight:800}
+
+/* biblioteca / sesiones */
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+.chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.search{border:1px solid var(--line);border-radius:8px;padding:6px 10px;min-width:220px}
+.slist{display:grid;gap:8px}
+.srow{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:10px 14px}
+.srow.cur{border-color:var(--red);box-shadow:0 0 0 2px #f6c2ca}
+.snum{background:var(--red);color:#fff;font-weight:800;border-radius:8px;padding:6px 10px;text-align:center;line-height:1.1}
+.snum small{display:block;font-size:10px;font-weight:600;opacity:.9}
+
+/* modal editor */
+.modal{position:fixed;inset:0;background:rgba(15,20,25,.55);z-index:50;display:none;align-items:stretch;justify-content:center;padding:14px}
+.modal.on{display:flex}
+.mbox{background:#fff;border-radius:14px;width:min(1400px,100%);display:flex;flex-direction:column;overflow:hidden}
+.mhead{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.mhead h2{margin:0;font-size:17px;flex:1}
+.mbody{display:grid;grid-template-columns:minmax(0,1fr) 380px;flex:1;min-height:0}
+@media(max-width:1000px){.mbody{grid-template-columns:1fr;overflow:auto}}
+.canvas-col{display:flex;flex-direction:column;min-height:0;padding:10px;gap:8px;background:#eef0f2;overflow:auto}
+.tools{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.tool{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:4px 8px;font-size:12px;font-weight:600}
+.tool.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.tool svg{width:18px;height:18px}
+.tsep{width:1px;height:24px;background:#c9ced4;margin:0 4px}
+.stage{flex:1;display:flex;align-items:center;justify-content:center;min-height:300px}
+#ed-svg{width:100%;max-height:calc(100vh - 260px);background:#3f8f3a;border-radius:10px;touch-action:none;user-select:none;-webkit-user-select:none;box-shadow:0 2px 10px rgba(0,0,0,.2)}
+#ed-svg .el{cursor:move}
+.selbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#fff;border-radius:8px;padding:6px 10px;border:1px solid var(--line);min-height:40px;font-size:13px}
+.selbar input{border:1px solid var(--line);border-radius:6px;padding:4px 8px;width:180px;text-transform:uppercase}
+.hint{color:var(--muted);font-size:12px}
+.form-col{padding:12px 14px;overflow:auto;display:flex;flex-direction:column;gap:10px;border-left:1px solid var(--line)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.mom{display:flex;flex-wrap:wrap;gap:4px}
+.mom label{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:2px 9px;cursor:pointer;background:#fff;user-select:none}
+.mom input{display:none}
+.mom label.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.pchips{display:flex;flex-wrap:wrap;gap:4px}
+.pchip{font-size:11px;font-weight:700;border:1px solid var(--line);border-radius:6px;padding:3px 7px;background:#fff;text-transform:uppercase}
+.pchip.used{opacity:.45}
+.pchip.pend{background:#ffe08a;border-color:#d8a800}
+.placeas{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px}
+.mfoot{display:flex;gap:8px;justify-content:flex-end;padding:10px 14px;border-top:1px solid var(--line)}
+
+/* impresión */
+#print-area{display:none}
+@media print{
+  @page{size:A4 landscape;margin:8mm}
+  body{background:#fff}
+  body>*:not(#print-area){display:none!important}
+  #print-area{display:block}
+}
+.ps-head{display:grid;grid-template-columns:2fr 1fr 1fr 1.3fr;gap:8px;margin-bottom:8px}
+.ps-box{border:2px solid var(--red);border-radius:10px;padding:6px 10px;text-align:center;font-weight:800;color:var(--red);font-size:16px;display:flex;align-items:center;justify-content:center;flex-direction:column}
+.ps-box.big{background:var(--red);color:#fff;font-size:22px}
+.ps-box small{font-size:10px;color:#555;font-weight:600;text-transform:uppercase}
+.ps-body{display:grid;grid-template-columns:150px 1fr;gap:10px}
+.ps-roster{border:2px solid #7a2a8c;border-radius:8px;padding:6px;font-size:11px}
+.ps-roster div{display:flex;gap:5px;border-bottom:1px solid #eee;padding:1px 0}
+.ps-roster b{width:18px;text-align:right}
+.ps-tasks{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ps-task{border:2px solid #111;border-radius:12px;padding:6px 8px;break-inside:avoid;page-break-inside:avoid;font-size:11px}
+.ps-task .pt{display:flex;gap:6px;align-items:center;margin-bottom:4px}
+.ps-task .pt .n{background:#111;color:#fff;border-radius:6px;padding:2px 8px;font-weight:800}
+.ps-task .pt .ti{border:1.5px solid #1d3a6b;border-radius:6px;padding:1px 8px;font-weight:800;flex:1}
+.ps-task svg{width:100%;height:auto;max-height:52mm;display:block;border-radius:6px;margin:4px 0}
+.ps-obj{font-size:10.5px;color:#222}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">Planificador de sesiones<small>Selección territorial · Categorías inferiores</small></div>
+  <nav class="nav" id="nav">
+    <button data-v="session" class="on">Sesión</button>
+    <button data-v="library">Biblioteca de tareas</button>
+    <button data-v="sessions">Todas las sesiones</button>
+  </nav>
+  <span class="sp"></span>
+  <span id="saved">Guardado ✓</span>
+  <button class="tbtn" id="b-print">Imprimir / PDF</button>
+  <button class="tbtn" id="b-export">Exportar copia</button>
+  <button class="tbtn" id="b-import">Importar</button>
+  <input type="file" id="f-import" accept=".json,application/json" hidden>
+</header>
+
+<main>
+  <!-- SESIÓN -->
+  <section class="view on" id="v-session">
+    <div class="card shead" id="shead"></div>
+    <div class="layout">
+      <aside class="card roster" id="roster"></aside>
+      <div>
+        <div class="toolbar">
+          <h2 id="tasks-title">Tareas de la sesión</h2>
+          <button class="btn" id="b-fromlib">+ Desde biblioteca</button>
+          <button class="btn pri" id="b-newtask">+ Nueva tarea</button>
+        </div>
+        <div class="tasks" id="tasks"></div>
+        <div class="card summary" id="summary"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BIBLIOTECA -->
+  <section class="view" id="v-library">
+    <div class="toolbar">
+      <h2>Biblioteca de tareas</h2>
+      <button class="btn pri" id="b-newlib">+ Nueva tarea en biblioteca</button>
+    </div>
+    <div class="filters" id="lib-filters"></div>
+    <div class="tasks" id="lib-list"></div>
+  </section>
+
+  <!-- SESIONES -->
+  <section class="view" id="v-sessions">
+    <div class="toolbar">
+      <h2>Todas las sesiones</h2>
+      <button class="btn pri" id="b-newsess">+ Nueva sesión</button>
+    </div>
+    <div class="slist" id="sess-list"></div>
+  </section>
+</main>
+
+<!-- EDITOR -->
+<div class="modal" id="modal">
+  <div class="mbox">
+    <div class="mhead"><h2 id="m-title">Editar tarea</h2><button class="btn ghost" id="m-x">✕</button></div>
+    <div class="mbody">
+      <div class="canvas-col">
+        <div class="tools" id="tools"></div>
+        <div class="stage"><svg id="ed-svg" xmlns="http://www.w3.org/2000/svg"></svg></div>
+        <div class="selbar" id="selbar"></div>
+      </div>
+      <div class="form-col" id="m-form"></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn" id="m-cancel">Cancelar</button>
+      <button class="btn pri" id="m-save">Guardar tarea</button>
+    </div>
+  </div>
+</div>
+
+<div id="print-area"></div>
+
+<script>
+/* ---------- constantes ---------- */
+const LS = 'ffrm_planificador_v1';
+const TIPOS = {
+  cal:{n:'Calentamiento', c:'#6b7580', s:'CAL'},
+  of:{n:'Ofensiva', c:'#c8102e', s:'OF'},
+  def:{n:'Defensiva', c:'#1f5fbf', s:'DEF'},
+  tda:{n:'Transición defensa-ataque', c:'#d06a00', s:'T D→A'},
+  tad:{n:'Transición ataque-defensa', c:'#7b3fb5', s:'T A→D'},
+  abp:{n:'ABP / Estrategia', c:'#0f8a6a', s:'ABP'},
+  jr:{n:'Juego real / Partido', c:'#2b2f33', s:'JR'},
+  vc:{n:'Vuelta a la calma', c:'#8a96a0', s:'VC'}
+};
+const MOMENTOS = ['Salida de balón','Progresión / creación','Finalización','Ataque rápido','Presión alta','Bloque medio','Bloque bajo / defensa del área','Tras pérdida','Tras recuperación','Córner','Falta lateral','Falta frontal','Saque de banda','Saque de puerta'];
+const ESTADOS = {
+  disp:{n:'✓ Disp.', l:'Disponible'},
+  lim:{n:'◐ Limit.', l:'Limitado'},
+  les:{n:'✚ Lesión', l:'Lesionado'},
+  aus:{n:'✕ Ausente', l:'Ausente'}
+};
+const EST_ORD = ['disp','lim','les','aus'];
+const FIELDS = {
+  full:{W:1050,H:680,x0:0,len:105,n:'Campo completo'},
+  half:{W:560,H:700,x0:52.5,len:52.5,n:'Medio campo'},
+  small:{W:700,H:460,n:'Espacio reducido'},
+  blank:{W:700,H:460,n:'Espacio libre'}
+};
+const POINT_T = ['A','B','C','GK','cone','ball','goal','text'];
+const DRAW_T = ['pass','run','drive','zone'];
+
+/* ---------- utilidades ---------- */
+const $ = s => document.querySelector(s);
+const uid = () => Math.random().toString(36).slice(2,10);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clone = o => JSON.parse(JSON.stringify(o));
+const dur = t => (Number(t.series)||1) * (Number(t.minutos)||0);
+const durTxt = t => (Number(t.series)||1) > 1 ? `${t.series}×${t.minutos||0}′` : `${t.minutos||0}′`;
+function fechaLarga(f){ if(!f) return ''; const d = new Date(f+'T12:00:00'); if(isNaN(d)) return f;
+  return d.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'numeric',year:'2-digit'}); }
+function badge(tipo){ const T = TIPOS[tipo]||TIPOS.jr; return `<span class="badge" style="background:${T.c}" title="${esc(T.n)}"><i>${esc(T.s)}</i> ${esc(T.n)}</span>`; }
+
+/* ---------- datos de ejemplo (plantilla Sesión 5) ---------- */
+function seed(){
+  const nombres = ['PEPE','SALMERON','ALVARO','OMAR','INRAM','FABIO','LUCAS','VICTOR','LEO GARCI','DAVID','GUILLE','ALMAGRO','HUGO','MARWAN','DAVID V','AMAYA','BILAL','PABLO L.','ALEJANDR','AARON','ELIAN','LEO L.','','',''];
+  const roster = nombres.map((n,i)=>({id:uid(), num:i+1, nombre:n, estado:'disp'}));
+  const t1 = {id:uid(), tipo:'cal', titulo:'Calentamiento + rueda de pases', series:1, minutos:15, espacio:'30x20 m', jugadores:'Grupo completo en 4 filas', material:'8 conos, 4 balones',
+    momentos:[], objetivos:'Activación general y técnica de pase con desmarque de apoyo.',
+    descripcion:'Cuatro filas en las esquinas. Pase en diagonal al jugador del centro, que devuelve de cara; el pasador sigue a su pase. Cada 3 minutos se cambia el sentido de la rueda.',
+    consignas:'Perfilarse antes de recibir, pase al pie bueno del compañero y comunicar.', variantes:'Añadir pared, tercer hombre o limitar a un toque.',
+    campo:'small', elementos:[
+      {t:'cone',x:110,y:90},{t:'cone',x:590,y:90},{t:'cone',x:110,y:370},{t:'cone',x:590,y:370},
+      {t:'cone',x:270,y:190},{t:'cone',x:430,y:190},{t:'cone',x:270,y:280},{t:'cone',x:430,y:280},
+      {t:'A',x:85,y:70},{t:'A',x:615,y:70},{t:'A',x:85,y:390},{t:'A',x:615,y:390},
+      {t:'A',x:270,y:160},{t:'A',x:430,y:310},{t:'ball',x:110,y:62},{t:'ball',x:590,y:398},
+      {t:'pass',x1:120,y1:100,x2:410,y2:185},{t:'pass',x1:580,y1:360,x2:290,y2:285},
+      {t:'run',x1:95,y1:115,x2:95,y2:345},{t:'run',x1:605,y1:345,x2:605,y2:115},
+      {t:'drive',x1:290,y1:240,x2:410,y2:240}
+    ]};
+  const t2 = {id:uid(), tipo:'of', titulo:'Evoluciones tácticas: rondos de conexión interior', series:2, minutos:10, espacio:'2 espacios de 20x20 m', jugadores:'4 azules + comodín contra 4 rojos en cada espacio', material:'Petos, conos',
+    momentos:['Progresión / creación','Presión alta'],
+    objetivos:'Objetivo azul: conectar con el comodín por dentro y que este devuelva por fuera al espacio, sin dar más de una vuelta por fuera sin pase por dentro. Objetivo rojo: robar el máximo de balones posibles.',
+    descripcion:'Dos rondos simultáneos. Los azules ocupan el perímetro y el comodín juega dentro con ellos. Los rojos presionan dentro del cuadrado.',
+    consignas:'Azules: amplitud, perfil abierto y pase tenso por dentro. Rojos: cerrar líneas interiores antes de saltar.', variantes:'Contar puntos por pase interior completado; los rojos puntúan si roban y salen conduciendo del espacio.',
+    campo:'full', elementos:[
+      {t:'zone',x:230,y:220,w:230,h:230},{t:'zone',x:590,y:220,w:230,h:230},
+      ...[0,360].flatMap(o=>[
+        {t:'A',x:300+o,y:280},{t:'A',x:390+o,y:280},{t:'A',x:300+o,y:390},{t:'A',x:390+o,y:390},
+        {t:'C',x:345+o,y:335},
+        {t:'B',x:345+o,y:205},{t:'B',x:215+o,y:335},{t:'B',x:475+o,y:335},{t:'B',x:345+o,y:465}
+      ]),
+      {t:'pass',x1:228,y1:335,x2:328,y2:335},{t:'pass',x1:360,y1:325,x2:460,y2:225}
+    ]};
+  const t3 = {id:uid(), tipo:'abp', titulo:'Estrategia: córner y faltas defensivas', series:1, minutos:20, espacio:'Medio campo', jugadores:'Grupo completo', material:'Balones, petos',
+    momentos:['Córner','Falta lateral'],
+    objetivos:'Fijar la organización defensiva en córner y en faltas laterales y que cada jugador conozca su función.',
+    descripcion:'Repetición de córneres y faltas en contra. Se ajustan la colocación de la zona en el área pequeña, los marcajes a los rematadores y el jugador que vigila el rechace.',
+    consignas:'Atacar el balón en el primer contacto, no perder de vista al par y salir en bloque tras el despeje.', variantes:'Introducir segunda jugada tras el rechace.',
+    campo:'half', elementos:[
+      {t:'GK',x:528,y:350},{t:'B',x:500,y:300},{t:'B',x:500,y:350},{t:'B',x:500,y:400},{t:'B',x:520,y:265},
+      {t:'B',x:455,y:325},{t:'B',x:455,y:385},{t:'B',x:405,y:355},
+      {t:'A',x:430,y:305},{t:'A',x:420,y:395},{t:'A',x:445,y:255},{t:'A',x:385,y:340},{t:'A',x:330,y:420},
+      {t:'A',x:536,y:34},{t:'ball',x:548,y:26},{t:'pass',x1:530,y1:42,x2:470,y2:330}
+    ]};
+  const L = (n,x,y,t='A')=>({t,x,y,label:n});
+  const t4 = {id:uid(), tipo:'def', titulo:'Fútbol con presión alta', series:2, minutos:15, espacio:'Campo completo', jugadores:'11 contra 11', material:'Petos, balones',
+    momentos:['Presión alta','Salida de balón'],
+    objetivos:'Presionar la salida de balón rival tras saque de puerta y en campo contrario, orientando hacia banda y saltando al pase atrás.',
+    descripcion:'Partido con reglas: el gol tras robo en campo contrario en menos de 8 segundos vale doble. Saque de puerta obligatorio en corto para provocar la presión.',
+    consignas:'El primer defensor orienta, el segundo cierra la línea de pase interior y el equipo acompaña juntando líneas.', variantes:'Limitar los toques del equipo que sale; dar punto extra por recuperación en el tercio final.',
+    campo:'full', elementos:[
+      L('PEPE',38,343,'GK'),L('FABIO',100,183),L('PABLO L.',140,322),L('INRAM',100,492),L('GUILLE',255,380),
+      L('PASTOR',285,244),L('ALEJANDR',430,241),L('AMAYA',440,395),L('ELIAN',336,495),L('OMAR',312,90),L('LEO GARCI',310,600),
+      L('SALMERON',1012,343,'GK'),L('VICTOR',948,175,'B'),L('LUCAS',950,495,'B'),L('BILAL',756,244,'B'),L('ALMAGRO',830,330,'B'),
+      L('AARON',610,233,'B'),L('LEO',590,401,'B'),L('MARWAN',752,425,'B'),L('ALVARO M.',642,538,'B'),L('DAVID M.',834,100,'B'),L('DAVID V.',856,590,'B'),
+      {t:'ball',x:62,y:343}
+    ]};
+  const l5 = {id:uid(), tipo:'tad', titulo:'Reacción tras pérdida 5 contra 5 + 2 comodines', series:3, minutos:5, espacio:'35x25 m', jugadores:'5 contra 5 + 2 comodines exteriores', material:'Petos de 3 colores, conos',
+    momentos:['Tras pérdida','Presión alta'],
+    objetivos:'Recuperar el balón en los 5 segundos siguientes a la pérdida, con presión inmediata sobre el poseedor y cierre de las líneas de pase cercanas.',
+    descripcion:'Juego de posesión. El equipo que pierde el balón suma un punto si lo recupera en menos de 5 segundos; el que roba suma un punto si encadena 5 pases.',
+    consignas:'El más cercano presiona, los demás cierran por dentro. Nada de lamentos tras la pérdida.', variantes:'Reducir el espacio o el tiempo de reacción a 4 segundos.',
+    campo:'small', elementos:[
+      {t:'zone',x:120,y:70,w:460,h:320},
+      {t:'A',x:220,y:150},{t:'A',x:360,y:120},{t:'A',x:480,y:170},{t:'A',x:260,y:300},{t:'A',x:430,y:320},
+      {t:'B',x:290,y:200},{t:'B',x:400,y:220},{t:'B',x:200,y:240},{t:'B',x:500,y:260},{t:'B',x:350,y:300},
+      {t:'C',x:95,y:230},{t:'C',x:605,y:230},{t:'ball',x:418,y:240},
+      {t:'run',x1:380,y1:205,x2:405,y2:230},{t:'run',x1:490,y1:185,x2:420,y2:225}
+    ]};
+  const l6 = {id:uid(), tipo:'tda', titulo:'Ataque rápido 4 contra 3 tras recuperación', series:4, minutos:4, espacio:'Medio campo', jugadores:'4 atacantes contra 3 defensores + portero', material:'Balones, conos, portería',
+    momentos:['Tras recuperación','Ataque rápido','Finalización'],
+    objetivos:'Finalizar en menos de 10 segundos tras recuperar, atacando el espacio con amplitud y profundidad.',
+    descripcion:'El entrenador pasa el balón a un atacante en zona de medio campo simulando una recuperación. Los cuatro atacan contra tres defensores que salen desde el área.',
+    consignas:'Primer pase hacia delante si es posible, conducción para fijar y desmarques de ruptura por fuera.', variantes:'Añadir un defensor que se incorpora con retraso para presionar el tiempo de decisión.',
+    campo:'half', elementos:[
+      {t:'GK',x:528,y:350},{t:'B',x:400,y:280},{t:'B',x:400,y:420},{t:'B',x:360,y:350},
+      {t:'A',x:140,y:350},{t:'A',x:170,y:160},{t:'A',x:170,y:540},{t:'A',x:90,y:250},{t:'ball',x:160,y:358},
+      {t:'drive',x1:150,y1:350,x2:300,y2:350},{t:'run',x1:180,y1:160,x2:420,y2:200},{t:'run',x1:180,y1:540,x2:430,y2:500},
+      {t:'pass',x1:300,y1:345,x2:415,y2:210},{t:'cone',x:60,y:350}
+    ]};
+  const l7 = {id:uid(), tipo:'of', titulo:'Salida de balón 6 + portero contra 4', series:3, minutos:6, espacio:'Medio campo', jugadores:'Portero + 6 contra 4', material:'Balones, conos, 2 miniporterías',
+    momentos:['Salida de balón','Saque de puerta'],
+    objetivos:'Superar la primera línea de presión con superioridad y llegar conduciendo a la línea de medio campo.',
+    descripcion:'El portero inicia en corto. El equipo que sale puntúa al cruzar el medio campo conduciendo; los presionantes puntúan marcando en la portería tras robo.',
+    consignas:'Centrales abiertos, mediocentro escalonado y pase al jugador libre del lado contrario a la presión.', variantes:'Añadir un quinto presionante cuando el nivel lo permita.',
+    campo:'half', elementos:[
+      {t:'GK',x:528,y:350},{t:'A',x:470,y:230},{t:'A',x:470,y:470},{t:'A',x:390,y:350},{t:'A',x:330,y:140},{t:'A',x:330,y:560},{t:'A',x:250,y:330},
+      {t:'B',x:420,y:290},{t:'B',x:420,y:420},{t:'B',x:330,y:350},{t:'B',x:250,y:230},
+      {t:'goal',x:40,y:200},{t:'goal',x:40,y:500},{t:'ball',x:510,y:360},
+      {t:'pass',x1:515,y1:345,x2:478,y2:245},{t:'pass',x1:465,y1:240,x2:340,y2:150},{t:'run',x1:250,y1:340,x2:190,y2:400}
+    ]};
+  const s = {id:uid(), categoria:'Sub-14 M', numero:5, lugar:'Corvera', fecha:'2025-10-07', hora:'', objetivo:'', notas:'',
+    roster, tareas:[t1,t2,t3,t4]};
+  const lib = [t1,t2,t3,t4,l5,l6,l7].map(t=>({...clone(t), id:uid()}));
+  return {sessions:[s], library:lib, currentId:s.id};
+}
+
+/* ---------- estado ---------- */
+let S;
+function load(){
+  try{ const r = localStorage.getItem(LS); if(r){ const o = JSON.parse(r); if(o && o.sessions && o.sessions.length){ S = o; return; } } }catch(e){}
+  S = seed();
+}
+let saveT;
+function save(){
+  clearTimeout(saveT);
+  saveT = setTimeout(()=>{
+    try{ localStorage.setItem(LS, JSON.stringify(S)); const el=$('#saved'); el.style.opacity=1; setTimeout(()=>el.style.opacity=0,1200);}catch(e){}
+  },250);
+}
+const cur = () => S.sessions.find(s=>s.id===S.currentId) || S.sessions[0];
+
+/* ---------- dibujo del campo ---------- */
+function fieldSVG(type){
+  const f = FIELDS[type]||FIELDS.small, W=f.W, H=f.H, m=20;
+  let s = `<rect width="${W}" height="${H}" fill="#3d8b38"/>`;
+  const n = type==='full'?14:(type==='half'?8:10), bw=W/n;
+  for(let i=0;i<n;i+=2) s += `<rect x="${i*bw}" y="0" width="${bw}" height="${H}" fill="#46963f"/>`;
+  const L = 'stroke="#fff" stroke-width="2.5" fill="none" stroke-opacity=".9"';
+  if(type==='small'){ return s + `<rect x="${m}" y="${m}" width="${W-2*m}" height="${H-2*m}" ${L}/>`; }
+  if(type==='blank') return s;
+  const sx=(W-2*m)/f.len, sy=(H-2*m)/68;
+  const X = mx=>m+(mx-f.x0)*sx, Y = my=>m+my*sy;
+  const rx=9.15*sx, ry=9.15*sy;
+  s += `<rect x="${X(f.x0)}" y="${Y(0)}" width="${f.len*sx}" height="${68*sy}" ${L}/>`;
+  if(type==='full'){
+    s += `<line x1="${X(52.5)}" y1="${Y(0)}" x2="${X(52.5)}" y2="${Y(68)}" ${L}/>`;
+    s += `<ellipse cx="${X(52.5)}" cy="${Y(34)}" rx="${rx}" ry="${ry}" ${L}/><circle cx="${X(52.5)}" cy="${Y(34)}" r="3.5" fill="#fff"/>`;
+  } else {
+    s += `<path d="M${X(52.5)},${Y(34-9.15)} A${rx},${ry} 0 0 1 ${X(52.5)},${Y(34+9.15)}" ${L}/>`;
+  }
+  const side = (g,dir)=>{
+    const pa=g+dir*16.5, ga=g+dir*5.5, sp=g+dir*11; let o='';
+    o += `<rect x="${X(Math.min(g,pa))}" y="${Y(34-20.16)}" width="${16.5*sx}" height="${40.32*sy}" ${L}/>`;
+    o += `<rect x="${X(Math.min(g,ga))}" y="${Y(34-9.16)}" width="${5.5*sx}" height="${18.32*sy}" ${L}/>`;
+    o += `<circle cx="${X(sp)}" cy="${Y(34)}" r="3" fill="#fff"/>`;
+    o += `<path d="M${X(pa)},${Y(34-7.31)} A${rx},${ry} 0 0 ${dir>0?1:0} ${X(pa)},${Y(34+7.31)}" ${L}/>`;
+    const gx = dir>0 ? X(g)-2*sx : X(g);
+    o += `<rect x="${gx}" y="${Y(34-3.66)}" width="${2*sx}" height="${7.32*sy}" fill="#fff" fill-opacity=".25" stroke="#fff" stroke-width="2.5"/>`;
+    return o;
+  };
+  if(type==='full') s += side(0,1);
+  s += side(105,-1);
+  return s;
+}
+
+/* ---------- elementos ---------- */
+const PCOL = {A:{f:'#d7263d',t:'#fff'}, B:{f:'#1b5fc1',t:'#fff'}, C:{f:'#f5c400',t:'#111'}, GK:{f:'#151515',t:'#fff'}};
+function playerSVG(e){
+  const c = PCOL[e.t], x=e.x, y=e.y, r=15; let sh='';
+  if(e.t==='A'||e.t==='GK') sh = `<circle cx="${x}" cy="${y}" r="${r}" fill="${c.f}" stroke="#fff" stroke-width="2.5"/>`;
+  if(e.t==='GK') sh += `<circle cx="${x}" cy="${y}" r="${r-5}" fill="none" stroke="#f5c400" stroke-width="2"/>`;
+  if(e.t==='B') sh = `<rect x="${x-r+1}" y="${y-r+1}" width="${2*r-2}" height="${2*r-2}" rx="5" fill="${c.f}" stroke="#fff" stroke-width="2.5"/>`;
+  if(e.t==='C') sh = `<polygon points="${x},${y-r-3} ${x+r+3},${y} ${x},${y+r+3} ${x-r-3},${y}" fill="${c.f}" stroke="#fff" stroke-width="2.5"/>`;
+  const lab = (e.label||'').trim();
+  const inner = lab && lab.length<=3 ? lab : ({GK:'P',C:'C'}[e.t]||'');
+  let s = sh + (inner?`<text x="${x}" y="${y+4.5}" text-anchor="middle" font-size="13" font-weight="800" fill="${c.t}" pointer-events="none">${esc(inner)}</text>`:'');
+  if(lab.length>3){
+    const w = lab.length*7.4+12;
+    s += `<rect x="${x-w/2}" y="${y+r+3}" width="${w}" height="18" rx="4" fill="#fff" stroke="${c.f==='#f5c400'?'#b38f00':c.f}" stroke-width="1.5"/>`;
+    s += `<text x="${x}" y="${y+r+16}" text-anchor="middle" font-size="11.5" font-weight="700" fill="#111" pointer-events="none">${esc(lab.toUpperCase())}</text>`;
+  }
+  return s;
+}
+function head(x1,y1,x2,y2,col){
+  const a=Math.atan2(y2-y1,x2-x1), L=15, W=8;
+  const p1=[x2-L*Math.cos(a)+W*Math.sin(a), y2-L*Math.sin(a)-W*Math.cos(a)];
+  const p2=[x2-L*Math.cos(a)-W*Math.sin(a), y2-L*Math.sin(a)+W*Math.cos(a)];
+  return `<polygon points="${x2},${y2} ${p1} ${p2}" fill="${col}"/>`;
+}
+function wavy(x1,y1,x2,y2){
+  const dx=x2-x1, dy=y2-y1, Ln=Math.hypot(dx,dy)||1, ux=dx/Ln, uy=dy/Ln, nx=-uy, ny=ux, end=Math.max(0,Ln-16);
+  let d=`M${x1},${y1}`;
+  for(let t=3;t<=end;t+=3){ const a=Math.sin(t/16*Math.PI*2)*5; d+=` L${(x1+ux*t+nx*a).toFixed(1)},${(y1+uy*t+ny*a).toFixed(1)}`; }
+  d += ` L${x1+ux*(Ln-14)},${y1+uy*(Ln-14)}`;
+  return d;
+}
+function elSVG(e,i,sel){
+  let s='';
+  const isSel = sel===i;
+  if(['A','B','C','GK'].includes(e.t)) s = playerSVG(e);
+  else if(e.t==='cone') s = `<polygon points="${e.x},${e.y-11} ${e.x+9},${e.y+7} ${e.x-9},${e.y+7}" fill="#ff8a1c" stroke="#fff" stroke-width="1.5"/>`;
+  else if(e.t==='ball') s = `<circle cx="${e.x}" cy="${e.y}" r="8" fill="#fff" stroke="#111" stroke-width="2"/><circle cx="${e.x}" cy="${e.y}" r="3" fill="#111"/>`;
+  else if(e.t==='goal') s = `<rect x="${e.x-6}" y="${e.y-24}" width="12" height="48" fill="#fff" fill-opacity=".35" stroke="#fff" stroke-width="3"/>`;
+  else if(e.t==='text') s = `<text x="${e.x}" y="${e.y}" text-anchor="middle" font-size="18" font-weight="800" fill="#fff" stroke="#1f3d1c" stroke-width="4" paint-order="stroke">${esc(e.label||'Texto')}</text>`;
+  else if(e.t==='zone') s = `<rect x="${e.x}" y="${e.y}" width="${e.w}" height="${e.h}" fill="#fff" fill-opacity=".12" stroke="#fff" stroke-width="2.5" stroke-dasharray="9 6"/>`;
+  else if(DRAW_T.includes(e.t)){
+    const col = e.t==='pass' ? '#ffe45c' : '#fff';
+    const a=Math.atan2(e.y2-e.y1,e.x2-e.x1), sx2=e.x2-12*Math.cos(a), sy2=e.y2-12*Math.sin(a);
+    s += `<line x1="${e.x1}" y1="${e.y1}" x2="${e.x2}" y2="${e.y2}" stroke="transparent" stroke-width="18"/>`;
+    if(e.t==='pass') s += `<line x1="${e.x1}" y1="${e.y1}" x2="${sx2}" y2="${sy2}" stroke="${col}" stroke-width="3" stroke-dasharray="10 7"/>`;
+    if(e.t==='run') s += `<line x1="${e.x1}" y1="${e.y1}" x2="${sx2}" y2="${sy2}" stroke="${col}" stroke-width="3"/>`;
+    if(e.t==='drive') s += `<path d="${wavy(e.x1,e.y1,e.x2,e.y2)}" stroke="${col}" stroke-width="3" fill="none"/>`;
+    s += head(e.x1,e.y1,e.x2,e.y2,col);
+  }
+  if(isSel){
+    if(DRAW_T.includes(e.t) && e.t!=='zone'){
+      s += `<circle data-h="1" cx="${e.x1}" cy="${e.y1}" r="9" fill="#ffe08a" stroke="#111" stroke-width="2" style="cursor:crosshair"/>`;
+      s += `<circle data-h="2" cx="${e.x2}" cy="${e.y2}" r="9" fill="#ffe08a" stroke="#111" stroke-width="2" style="cursor:crosshair"/>`;
+    } else if(e.t==='zone'){
+      s += `<rect x="${e.x-3}" y="${e.y-3}" width="${e.w+6}" height="${e.h+6}" fill="none" stroke="#ffe08a" stroke-width="2.5"/>`;
+      s += `<rect data-h="br" x="${e.x+e.w-9}" y="${e.y+e.h-9}" width="18" height="18" fill="#ffe08a" stroke="#111" stroke-width="2" style="cursor:nwse-resize"/>`;
+    } else {
+      s = `<circle cx="${e.x}" cy="${e.y}" r="24" fill="none" stroke="#ffe08a" stroke-width="3" stroke-dasharray="5 4"/>` + s;
+    }
+  }
+  return `<g data-i="${i}" class="el">${s}</g>`;
+}
+function orderEls(els){ // zonas abajo, flechas en medio, jugadores arriba
+  const rank = e => e.t==='zone'?0:(DRAW_T.includes(e.t)?1:2);
+  return els.map((e,i)=>[e,i]).sort((a,b)=>rank(a[0])-rank(b[0]));
+}
+function thumbSVG(t){
+  const f = FIELDS[t.campo]||FIELDS.small;
+  return `<svg viewBox="0 0 ${f.W} ${f.H}" xmlns="http://www.w3.org/2000/svg">${fieldSVG(t.campo)}${orderEls(t.elementos||[]).map(([e,i])=>elSVG(e,i,-1)).join('')}</svg>`;
+}
+
+/* ---------- vista sesión ---------- */
+function renderHead(){
+  const s = cur();
+  $('#shead').innerHTML = `
+    <label class="f">Categoría<input data-k="categoria" value="${esc(s.categoria)}" placeholder="Sub-14 M"></label>
+    <label class="f">Sesión nº<input data-k="numero" type="number" min="1" value="${esc(s.numero)}"></label>
+    <label class="f">Fecha<input data-k="fecha" type="date" value="${esc(s.fecha)}"></label>
+    <label class="f">Hora<input data-k="hora" type="time" value="${esc(s.hora)}"></label>
+    <label class="f" style="grid-column:span 2">Lugar<input data-k="lugar" value="${esc(s.lugar)}" placeholder="Campo / instalación"></label>
+    <label class="f wide">Objetivo general de la sesión<input data-k="objetivo" value="${esc(s.objetivo)}" placeholder="Ej.: presión tras pérdida y salida de balón ante bloque alto"></label>`;
+  $('#shead').querySelectorAll('[data-k]').forEach(inp=>inp.oninput=()=>{ s[inp.dataset.k]=inp.value; save(); renderTitle(); });
+  renderTitle();
+}
+function renderTitle(){ const s=cur(); $('#tasks-title').textContent = `Sesión ${s.numero||''} · ${s.categoria||''}`; }
+
+function renderRoster(){
+  const s = cur(); const r = s.roster;
+  const disp = r.filter(p=>p.nombre && (p.estado==='disp'||p.estado==='lim')).length;
+  const tot = r.filter(p=>p.nombre).length;
+  $('#roster').innerHTML = `<h3>Plantilla</h3>
+    <div class="rcount"><b>${disp}</b> disponibles de ${tot} · pulsa el estado para cambiarlo</div>
+    ${r.map((p,i)=>`<div class="rrow ${p.estado==='les'||p.estado==='aus'?'off':''}">
+      <span class="num">${p.num}</span>
+      <input data-i="${i}" value="${esc(p.nombre)}" placeholder="—">
+      <button class="st ${p.estado}" data-st="${i}" title="${ESTADOS[p.estado].l}">${ESTADOS[p.estado].n}</button>
+    </div>`).join('')}
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <button class="btn sm" id="r-add">+ Jugador</button>
+      <button class="btn sm" id="r-del">− Último</button>
+    </div>`;
+  $('#roster').querySelectorAll('input[data-i]').forEach(inp=>inp.oninput=()=>{ r[+inp.dataset.i].nombre=inp.value.toUpperCase(); save(); });
+  $('#roster').querySelectorAll('input[data-i]').forEach(inp=>inp.onchange=()=>renderRoster());
+  $('#roster').querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>{
+    const p=r[+b.dataset.st]; p.estado = EST_ORD[(EST_ORD.indexOf(p.estado)+1)%EST_ORD.length]; save(); renderRoster(); });
+  $('#r-add').onclick=()=>{ r.push({id:uid(),num:(r.length?r[r.length-1].num:0)+1,nombre:'',estado:'disp'}); save(); renderRoster(); };
+  $('#r-del').onclick=()=>{ if(r.length && (!r[r.length-1].nombre || confirm('¿Eliminar a '+r[r.length-1].nombre+'?'))){ r.pop(); save(); renderRoster(); } };
+}
+
+function taskCard(t, idx, ctx){
+  const meta = [
+    t.jugadores?`<div><b>Jugadores:</b> ${esc(t.jugadores)}</div>`:'',
+    t.espacio?`<div><b>Espacio:</b> ${esc(t.espacio)}</div>`:'',
+    t.objetivos?`<div><b>Objetivo:</b> ${esc(t.objetivos.length>190?t.objetivos.slice(0,190)+'…':t.objetivos)}</div>`:'',
+    (t.momentos||[]).length?`<div class="tags">${t.momentos.map(m=>`<span class="tag">${esc(m)}</span>`).join('')}</div>`:''
+  ].join('');
+  const acts = ctx==='session'
+    ? `<button class="btn sm" data-a="edit">Editar</button>
+       <button class="btn sm" data-a="up" title="Subir">↑</button><button class="btn sm" data-a="down" title="Bajar">↓</button>
+       <button class="btn sm" data-a="dup">Duplicar</button>
+       <button class="btn sm" data-a="tolib">Guardar en biblioteca</button>
+       <button class="btn sm" data-a="del" style="margin-left:auto">Quitar</button>`
+    : `<button class="btn sm pri" data-a="add">Añadir a la sesión</button>
+       <button class="btn sm" data-a="edit">Editar</button>
+       <button class="btn sm" data-a="dup">Duplicar</button>
+       <button class="btn sm" data-a="del" style="margin-left:auto">Eliminar</button>`;
+  return `<div class="card task" data-id="${t.id}">
+    <div class="th">${ctx==='session'?`<span class="tn">TAREA ${idx+1}</span>`:''}${badge(t.tipo)}<span style="flex:1"></span><span class="tdur">${durTxt(t)}</span></div>
+    <div class="ttl">${esc(t.titulo||'Sin título')}</div>
+    <div class="thumb" data-a="edit" title="Editar diagrama">${thumbSVG(t)}</div>
+    <div class="meta">${meta}</div>
+    <div class="tf">${acts}</div>
+  </div>`;
+}
+
+function renderTasks(){
+  const s = cur();
+  const box = $('#tasks');
+  box.innerHTML = s.tareas.length ? s.tareas.map((t,i)=>taskCard(t,i,'session')).join('')
+    : `<div class="empty">Esta sesión todavía no tiene tareas. Crea una nueva o tráela de la biblioteca.</div>`;
+  box.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{
+    const id=b.closest('.task').dataset.id, i=s.tareas.findIndex(t=>t.id===id), t=s.tareas[i];
+    const a=b.dataset.a;
+    if(a==='edit') openEditor(t,'session');
+    if(a==='up'&&i>0){ [s.tareas[i-1],s.tareas[i]]=[s.tareas[i],s.tareas[i-1]]; }
+    if(a==='down'&&i<s.tareas.length-1){ [s.tareas[i+1],s.tareas[i]]=[s.tareas[i],s.tareas[i+1]]; }
+    if(a==='dup') s.tareas.splice(i+1,0,{...clone(t),id:uid()});
+    if(a==='tolib'){ S.library.unshift({...clone(t),id:uid()}); toast('Tarea guardada en la biblioteca'); }
+    if(a==='del' && confirm('¿Quitar esta tarea de la sesión?')) s.tareas.splice(i,1);
+    if(a!=='edit'){ save(); renderTasks(); }
+  });
+  renderSummary();
+}
+
+function renderSummary(){
+  const s = cur(); const tot = s.tareas.reduce((a,t)=>a+dur(t),0);
+  const by = {}; s.tareas.forEach(t=>by[t.tipo]=(by[t.tipo]||0)+dur(t));
+  const moms = [...new Set(s.tareas.flatMap(t=>t.momentos||[]))];
+  const keys = Object.keys(TIPOS).filter(k=>by[k]);
+  $('#summary').innerHTML = `<div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px">
+      <h3 style="margin:0;font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)">Distribución de la carga</h3>
+      <span>Tiempo total de tareas: <span class="total">${tot}′</span></span></div>
+    <div class="bar">${tot?keys.map(k=>`<div style="width:${by[k]/tot*100}%;background:${TIPOS[k].c}" title="${TIPOS[k].n}: ${by[k]}′">${TIPOS[k].s}</div>`).join(''):''}</div>
+    <div class="legend">${keys.map(k=>`<span><em style="background:${TIPOS[k].c}"></em><b>${TIPOS[k].s}</b> ${TIPOS[k].n}: ${by[k]}′ (${Math.round(by[k]/tot*100)} %)</span>`).join('')||'<span class="hint">Sin tareas</span>'}</div>
+    ${moms.length?`<div style="margin-top:8px;font-size:12px"><b>Situaciones de partido trabajadas:</b><div class="tags">${moms.map(m=>`<span class="tag">${esc(m)}</span>`).join('')}</div></div>`:''}`;
+}
+
+/* ---------- biblioteca ---------- */
+let LF = {tipo:'', q:'', mom:''};
+let LIB_PICK = false;
+function renderLibrary(){
+  $('#lib-filters').innerHTML = `
+    ${LIB_PICK?`<span class="badge" style="background:#111">Elige una tarea para la sesión ${esc(cur().numero)}</span>`:''}
+    <button class="chip ${!LF.tipo?'on':''}" data-t="">Todas</button>
+    ${Object.entries(TIPOS).map(([k,T])=>`<button class="chip ${LF.tipo===k?'on':''}" data-t="${k}"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${T.c};margin-right:4px"></span>${T.n}</button>`).join('')}
+    <select class="search" id="lf-mom" style="min-width:180px"><option value="">Cualquier situación de partido</option>${MOMENTOS.map(m=>`<option ${LF.mom===m?'selected':''}>${esc(m)}</option>`).join('')}</select>
+    <input class="search" id="lf-q" placeholder="Buscar…" value="${esc(LF.q)}">`;
+  $('#lib-filters').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{LF.tipo=b.dataset.t; renderLibrary();});
+  $('#lf-q').oninput=e=>{LF.q=e.target.value; renderLibList();};
+  $('#lf-mom').onchange=e=>{LF.mom=e.target.value; renderLibList();};
+  renderLibList();
+}
+function renderLibList(){
+  const q = LF.q.toLowerCase();
+  const list = S.library.filter(t=>(!LF.tipo||t.tipo===LF.tipo) && (!LF.mom||(t.momentos||[]).includes(LF.mom)) &&
+    (!q || [t.titulo,t.objetivos,t.descripcion,t.jugadores].join(' ').toLowerCase().includes(q)));
+  const box = $('#lib-list');
+  box.innerHTML = list.length ? list.map(t=>taskCard(t,0,'library')).join('') : `<div class="empty">No hay tareas con esos filtros.</div>`;
+  box.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{
+    const id=b.closest('.task').dataset.id, i=S.library.findIndex(t=>t.id===id), t=S.library[i], a=b.dataset.a;
+    if(a==='add'){ cur().tareas.push({...clone(t),id:uid()}); save(); toast(`Añadida a la sesión ${cur().numero}`); if(LIB_PICK){LIB_PICK=false; show('session');} return; }
+    if(a==='edit') return openEditor(t,'library');
+    if(a==='dup') S.library.splice(i+1,0,{...clone(t),id:uid(),titulo:t.titulo+' (copia)'});
+    if(a==='del' && confirm('¿Eliminar esta tarea de la biblioteca?')) S.library.splice(i,1);
+    save(); renderLibList();
+  });
+}
+
+/* ---------- sesiones ---------- */
+function renderSessions(){
+  const list = [...S.sessions].sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'') || (b.numero||0)-(a.numero||0));
+  $('#sess-list').innerHTML = list.map(s=>{
+    const tot = s.tareas.reduce((a,t)=>a+dur(t),0);
+    return `<div class="card srow ${s.id===S.currentId?'cur':''}" data-id="${s.id}">
+      <div class="snum"><small>SESIÓN</small>${esc(s.numero)}</div>
+      <div><b>${esc(s.categoria)}</b> · ${esc(fechaLarga(s.fecha))}${s.hora?' · '+esc(s.hora):''} · ${esc(s.lugar)}
+        <div class="hint">${s.tareas.length} tareas · ${tot}′ · ${s.tareas.map(t=>TIPOS[t.tipo]?.s||'').join(' / ')}</div>
+        ${s.objetivo?`<div style="font-size:13px">${esc(s.objetivo)}</div>`:''}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        <button class="btn sm pri" data-a="open">Abrir</button>
+        <button class="btn sm" data-a="dup">Duplicar</button>
+        <button class="btn sm" data-a="del">Eliminar</button>
+      </div></div>`;
+  }).join('');
+  $('#sess-list').querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{
+    const id=b.closest('.srow').dataset.id, s=S.sessions.find(x=>x.id===id), a=b.dataset.a;
+    if(a==='open'){ S.currentId=id; save(); renderAllSession(); show('session'); return; }
+    if(a==='dup'){ const n={...clone(s),id:uid(),numero:nextNum(s.categoria)}; n.tareas.forEach(t=>t.id=uid()); S.sessions.push(n); }
+    if(a==='del'){
+      if(S.sessions.length===1) return alert('Debe quedar al menos una sesión.');
+      if(!confirm(`¿Eliminar la sesión ${s.numero} (${s.categoria})?`)) return;
+      S.sessions=S.sessions.filter(x=>x.id!==id); if(S.currentId===id) S.currentId=S.sessions[0].id;
+    }
+    save(); renderSessions();
+  });
+}
+function nextNum(cat){ return Math.max(0,...S.sessions.filter(s=>s.categoria===cat).map(s=>+s.numero||0))+1; }
+function newSession(){
+  const c = cur();
+  const s = {id:uid(), categoria:c.categoria, numero:nextNum(c.categoria), lugar:c.lugar, fecha:new Date().toISOString().slice(0,10), hora:c.hora, objetivo:'', notas:'',
+    roster:c.roster.map(p=>({...p,id:uid(),estado:'disp'})), tareas:[]};
+  S.sessions.push(s); S.currentId=s.id; save(); renderAllSession(); show('session');
+}
+
+/* ---------- editor de tareas ---------- */
+let ED = null;
+const TOOLDEF = [
+  ['select','Mover / seleccionar','<path d="M5 3l12 7-5 1.5L9.5 17z" fill="currentColor"/>'],
+  ['sep'],
+  ['A','Jugador rojo (círculo)','<circle cx="10" cy="10" r="7" fill="#d7263d" stroke="#fff" stroke-width="1.5"/>','Rojo'],
+  ['B','Jugador azul (cuadrado)','<rect x="3" y="3" width="14" height="14" rx="3" fill="#1b5fc1" stroke="#fff" stroke-width="1.5"/>','Azul'],
+  ['C','Comodín','<polygon points="10,1.5 18.5,10 10,18.5 1.5,10" fill="#f5c400" stroke="#333" stroke-width="1"/>'],
+  ['GK','Portero','<circle cx="10" cy="10" r="7" fill="#151515"/><circle cx="10" cy="10" r="4" fill="none" stroke="#f5c400" stroke-width="1.5"/>'],
+  ['sep'],
+  ['cone','Cono','<polygon points="10,3 16,16 4,16" fill="#ff8a1c"/>'],
+  ['ball','Balón','<circle cx="10" cy="10" r="6.5" fill="#fff" stroke="#111" stroke-width="1.5"/><circle cx="10" cy="10" r="2.3" fill="#111"/>'],
+  ['goal','Miniportería','<rect x="7" y="2" width="6" height="16" fill="none" stroke="currentColor" stroke-width="2"/>'],
+  ['zone','Zona','<rect x="2.5" y="4.5" width="15" height="11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="3 2"/>'],
+  ['text','Texto','<text x="10" y="15" text-anchor="middle" font-size="14" font-weight="800" fill="currentColor">T</text>'],
+  ['sep'],
+  ['pass','Pase','<line x1="2" y1="16" x2="15" y2="5" stroke="#c9a400" stroke-width="2" stroke-dasharray="3 2"/><polygon points="18,2 11,4 16,9" fill="#c9a400"/>'],
+  ['run','Desplazamiento sin balón','<line x1="2" y1="16" x2="15" y2="5" stroke="currentColor" stroke-width="2"/><polygon points="18,2 11,4 16,9" fill="currentColor"/>'],
+  ['drive','Conducción','<path d="M2 16 q2-5 4-2 t4-3 t4-3" stroke="currentColor" stroke-width="2" fill="none"/><polygon points="18,2 11,4 16,9" fill="currentColor"/>']
+];
+function openEditor(task, ctx, isNew=false){
+  ED = {orig:task, t:clone(task), ctx, isNew, tool:'select', sel:-1, drag:null, pend:null, placeAs:'A'};
+  $('#m-title').textContent = isNew ? 'Nueva tarea' : 'Editar tarea';
+  $('#m-save').textContent = ctx==='library' ? 'Guardar en biblioteca' : 'Guardar tarea';
+  renderTools(); renderForm(); renderCanvas(); renderSel();
+  $('#modal').classList.add('on'); document.body.style.overflow='hidden';
+}
+function closeEditor(){ $('#modal').classList.remove('on'); document.body.style.overflow=''; ED=null; }
+function renderTools(){
+  $('#tools').innerHTML = TOOLDEF.map(d=> d[0]==='sep' ? '<span class="tsep"></span>' :
+    `<button class="tool ${ED.tool===d[0]?'on':''}" data-tool="${d[0]}" title="${d[1]}"><svg viewBox="0 0 20 20">${d[2]}</svg>${d[3]||d[1].split(' ')[0]}</button>`).join('')
+    + `<span class="tsep"></span><label class="tool">Campo <select id="ed-campo" style="border:0;background:none;font-weight:600">${Object.entries(FIELDS).map(([k,f])=>`<option value="${k}" ${ED.t.campo===k?'selected':''}>${f.n}</option>`).join('')}</select></label>
+      <button class="tool" id="ed-clear" title="Borrar todo el diagrama">Vaciar</button>`;
+  $('#tools').querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>{ ED.tool=b.dataset.tool; if(['A','B','C','GK'].includes(ED.tool)) ED.placeAs=ED.tool; renderTools(); renderSel(); });
+  $('#ed-campo').onchange=e=>{ ED.t.campo=e.target.value; clampAll(); renderCanvas(); };
+  $('#ed-clear').onclick=()=>{ if(confirm('¿Vaciar el diagrama?')){ ED.t.elementos=[]; ED.sel=-1; renderCanvas(); renderSel(); renderPChips(); } };
+}
+function clampAll(){
+  const f=FIELDS[ED.t.campo];
+  ED.t.elementos.forEach(e=>{
+    if('x' in e){ e.x=Math.min(Math.max(e.x,5),f.W-5); e.y=Math.min(Math.max(e.y,5),f.H-5); }
+    if('x1' in e){ ['x1','x2'].forEach(k=>e[k]=Math.min(Math.max(e[k],5),f.W-5)); ['y1','y2'].forEach(k=>e[k]=Math.min(Math.max(e[k],5),f.H-5)); }
+  });
+}
+function renderCanvas(){
+  const f=FIELDS[ED.t.campo]||FIELDS.small, svg=$('#ed-svg');
+  svg.setAttribute('viewBox',`0 0 ${f.W} ${f.H}`);
+  let prev='';
+  if(ED.drag && ED.drag.type==='draw'){
+    const d=ED.drag;
+    prev = d.t==='zone'
+      ? elSVG({t:'zone',x:Math.min(d.x1,d.x2),y:Math.min(d.y1,d.y2),w:Math.abs(d.x2-d.x1),h:Math.abs(d.y2-d.y1)},-9,-1)
+      : elSVG({t:d.t,x1:d.x1,y1:d.y1,x2:d.x2,y2:d.y2},-9,-1);
+  }
+  svg.innerHTML = fieldSVG(ED.t.campo) + orderEls(ED.t.elementos).map(([e,i])=>elSVG(e,i,ED.sel)).join('') + prev;
+}
+function pt(ev){
+  const svg=$('#ed-svg'), p=svg.createSVGPoint(); p.x=ev.clientX; p.y=ev.clientY;
+  const r=p.matrixTransform(svg.getScreenCTM().inverse()); return {x:Math.round(r.x), y:Math.round(r.y)};
+}
+function setupCanvas(){
+  const svg=$('#ed-svg');
+  svg.addEventListener('pointerdown', ev=>{
+    if(!ED) return;
+    const p=pt(ev), h=ev.target.closest('[data-h]'), g=ev.target.closest('[data-i]');
+    svg.setPointerCapture(ev.pointerId);
+    if(h && ED.sel>=0){ ED.drag={type:'handle',h:h.dataset.h}; return; }
+    const isDraw = DRAW_T.includes(ED.tool) && !ED.pend;
+    if(g && +g.dataset.i>=0 && !isDraw && !ED.pend){
+      ED.sel=+g.dataset.i; ED.drag={type:'move',last:p,moved:false}; renderCanvas(); renderSel(); return;
+    }
+    if(ED.tool==='select'){ ED.sel=-1; renderCanvas(); renderSel(); return; }
+    if(isDraw){ ED.drag={type:'draw',t:ED.tool,x1:p.x,y1:p.y,x2:p.x,y2:p.y}; return; }
+    // herramientas de punto
+    let e;
+    if(ED.pend){ e={t:ED.placeAs,x:p.x,y:p.y,label:ED.pend}; ED.pend=null; }
+    else if(ED.tool==='text'){ e={t:'text',x:p.x,y:p.y,label:'Texto'}; }
+    else e={t:ED.tool,x:p.x,y:p.y};
+    ED.t.elementos.push(e); ED.sel=ED.t.elementos.length-1; renderCanvas(); renderSel(); renderPChips();
+    if(e.t==='text') setTimeout(()=>{const i=$('#sel-label'); if(i){i.focus(); i.select();}},0);
+  });
+  svg.addEventListener('pointermove', ev=>{
+    if(!ED||!ED.drag) return;
+    const p=pt(ev), d=ED.drag, e=ED.t.elementos[ED.sel];
+    if(d.type==='move' && e){
+      const dx=p.x-d.last.x, dy=p.y-d.last.y; if(!dx&&!dy) return; d.last=p; d.moved=true;
+      if('x' in e){ e.x+=dx; e.y+=dy; } if('x1' in e){ e.x1+=dx; e.y1+=dy; e.x2+=dx; e.y2+=dy; }
+    } else if(d.type==='handle' && e){
+      if(d.h==='1'){e.x1=p.x;e.y1=p.y;} else if(d.h==='2'){e.x2=p.x;e.y2=p.y;} else if(d.h==='br'){ e.w=Math.max(20,p.x-e.x); e.h=Math.max(20,p.y-e.y); }
+    } else if(d.type==='draw'){ d.x2=p.x; d.y2=p.y; }
+    renderCanvas();
+  });
+  const end = ()=>{
+    if(!ED||!ED.drag) return;
+    const d=ED.drag; ED.drag=null;
+    if(d.type==='draw'){
+      const len=Math.hypot(d.x2-d.x1,d.y2-d.y1);
+      if(len>14){
+        ED.t.elementos.push(d.t==='zone'
+          ? {t:'zone',x:Math.min(d.x1,d.x2),y:Math.min(d.y1,d.y2),w:Math.abs(d.x2-d.x1),h:Math.abs(d.y2-d.y1)}
+          : {t:d.t,x1:d.x1,y1:d.y1,x2:d.x2,y2:d.y2});
+        ED.sel=ED.t.elementos.length-1;
+      }
+    }
+    renderCanvas(); renderSel();
+  };
+  svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', end);
+  svg.addEventListener('dblclick', ()=>{ const i=$('#sel-label'); if(i){ i.focus(); i.select(); } });
+  document.addEventListener('keydown', ev=>{
+    if(!ED) return;
+    if(ev.key==='Escape'){ if(ED.pend){ED.pend=null; renderPChips(); renderSel();} else if(ED.sel>=0){ED.sel=-1; renderCanvas(); renderSel();} return; }
+    if((ev.key==='Delete'||ev.key==='Backspace') && ED.sel>=0 && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){
+      ev.preventDefault(); delSel();
+    }
+  });
+}
+function delSel(){ ED.t.elementos.splice(ED.sel,1); ED.sel=-1; renderCanvas(); renderSel(); renderPChips(); }
+const ELN = {A:'Jugador rojo',B:'Jugador azul',C:'Comodín',GK:'Portero',cone:'Cono',ball:'Balón',goal:'Miniportería',text:'Texto',zone:'Zona',pass:'Pase',run:'Desplazamiento sin balón',drive:'Conducción'};
+function renderSel(){
+  const bar=$('#selbar');
+  if(ED.pend){ bar.innerHTML=`<span>Pulsa en el campo para colocar a <b>${esc(ED.pend)}</b> como ${ELN[ED.placeAs].toLowerCase()}.</span><button class="btn sm" id="pend-x">Cancelar</button>`; $('#pend-x').onclick=()=>{ED.pend=null;renderSel();renderPChips();}; return; }
+  const e = ED.t.elementos[ED.sel];
+  if(!e){
+    const tips = {select:'Arrastra los elementos para moverlos. Selecciona uno para editarlo o borrarlo (tecla Supr).',
+      pass:'Arrastra en el campo para dibujar un pase (línea discontinua amarilla).',run:'Arrastra para dibujar un desplazamiento sin balón (línea continua).',
+      drive:'Arrastra para dibujar una conducción (línea ondulada).',zone:'Arrastra para marcar una zona o espacio de juego.'};
+    bar.innerHTML = `<span class="hint">${tips[ED.tool] || 'Pulsa en el campo para añadir: '+ELN[ED.tool].toLowerCase()+'. Puedes colocar varios seguidos.'}</span>`; return;
+  }
+  const lab = ['A','B','C','GK','text'].includes(e.t);
+  const swap = ['A','B','C','GK'].includes(e.t);
+  bar.innerHTML = `<b>${ELN[e.t]}</b>
+    ${lab?`<label>Nombre / dorsal <input id="sel-label" value="${esc(e.label||'')}" placeholder="${e.t==='text'?'Texto':'Ej.: 7 o PEPE'}"></label>`:''}
+    ${swap?`<span class="hint">Cambiar a:</span>${['A','B','C','GK'].filter(k=>k!==e.t).map(k=>`<button class="btn sm" data-sw="${k}">${ELN[k]}</button>`).join('')}`:''}
+    ${['pass','run','drive'].includes(e.t)?`<span class="hint">Cambiar a:</span>${['pass','run','drive'].filter(k=>k!==e.t).map(k=>`<button class="btn sm" data-sw="${k}">${ELN[k]}</button>`).join('')}<span class="hint">Arrastra los puntos amarillos para ajustar.</span>`:''}
+    <span style="flex:1"></span><button class="btn sm" id="sel-dup">Duplicar</button><button class="btn sm" id="sel-del" style="color:var(--bad)">Eliminar</button>`;
+  const li=$('#sel-label'); if(li) li.oninput=()=>{ e.label=li.value; renderCanvas(); renderPChips(); };
+  bar.querySelectorAll('[data-sw]').forEach(b=>b.onclick=()=>{ e.t=b.dataset.sw; renderCanvas(); renderSel(); });
+  $('#sel-del').onclick=delSel;
+  $('#sel-dup').onclick=()=>{ const c=clone(e); if('x' in c){c.x+=30;c.y+=30;} if('x1' in c){c.x1+=30;c.y1+=30;c.x2+=30;c.y2+=30;} ED.t.elementos.push(c); ED.sel=ED.t.elementos.length-1; renderCanvas(); renderSel(); };
+}
+function renderForm(){
+  const t=ED.t;
+  $('#m-form').innerHTML = `
+    <label class="f">Título<input data-k="titulo" value="${esc(t.titulo)}" placeholder="Ej.: Rondo 4 contra 2 con transición"></label>
+    <label class="f">Tipo de tarea<select data-k="tipo">${Object.entries(TIPOS).map(([k,T])=>`<option value="${k}" ${t.tipo===k?'selected':''}>${T.n}</option>`).join('')}</select></label>
+    <div class="row3">
+      <label class="f">Series<input data-k="series" type="number" min="1" value="${esc(t.series)}"></label>
+      <label class="f">Min / serie<input data-k="minutos" type="number" min="0" value="${esc(t.minutos)}"></label>
+      <label class="f">Total<input id="f-total" value="${dur(t)}′" disabled></label>
+    </div>
+    <div class="row2">
+      <label class="f">Jugadores<input data-k="jugadores" value="${esc(t.jugadores)}" placeholder="Ej.: 5 contra 5 + 2"></label>
+      <label class="f">Espacio<input data-k="espacio" value="${esc(t.espacio)}" placeholder="Ej.: 40x30 m"></label>
+    </div>
+    <div><div class="f" style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Situación de partido que reproduce</div>
+      <div class="mom" id="f-mom">${MOMENTOS.map(m=>`<label class="${(t.momentos||[]).includes(m)?'on':''}"><input type="checkbox" value="${esc(m)}" ${(t.momentos||[]).includes(m)?'checked':''}>${esc(m)}</label>`).join('')}</div></div>
+    <label class="f">Objetivos<textarea data-k="objetivos" rows="3">${esc(t.objetivos)}</textarea></label>
+    <label class="f">Desarrollo y reglas<textarea data-k="descripcion" rows="3">${esc(t.descripcion)}</textarea></label>
+    <label class="f">Consignas del entrenador<textarea data-k="consignas" rows="2">${esc(t.consignas)}</textarea></label>
+    <label class="f">Variantes / progresiones<textarea data-k="variantes" rows="2">${esc(t.variantes)}</textarea></label>
+    <label class="f">Material<input data-k="material" value="${esc(t.material)}"></label>
+    <div><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Colocar jugadores de la plantilla en el diagrama</div>
+      <div class="placeas" id="placeas"></div>
+      <div class="pchips" id="pchips"></div></div>`;
+  $('#m-form').querySelectorAll('[data-k]').forEach(inp=>inp.oninput=()=>{ t[inp.dataset.k]=inp.value; $('#f-total').value=dur(t)+'′'; });
+  $('#f-mom').querySelectorAll('input').forEach(c=>c.onchange=()=>{
+    t.momentos=[...$('#f-mom').querySelectorAll('input:checked')].map(x=>x.value);
+    c.parentElement.classList.toggle('on',c.checked); });
+  renderPChips();
+}
+function renderPChips(){
+  if(!ED) return;
+  $('#placeas').innerHTML = '<span class="hint" style="align-self:center">Colocar como:</span>' + ['A','B','C','GK'].map(k=>`<button class="tool ${ED.placeAs===k?'on':''}" data-pa="${k}">${ELN[k]}</button>`).join('');
+  $('#placeas').querySelectorAll('[data-pa]').forEach(b=>b.onclick=()=>{ED.placeAs=b.dataset.pa; renderPChips(); renderSel();});
+  const used = new Set(ED.t.elementos.map(e=>(e.label||'').toUpperCase()));
+  const pl = cur().roster.filter(p=>p.nombre && p.estado!=='aus');
+  $('#pchips').innerHTML = pl.map(p=>`<button class="pchip ${used.has(p.nombre.toUpperCase())?'used':''} ${ED.pend===p.nombre?'pend':''}" data-n="${esc(p.nombre)}" title="${ESTADOS[p.estado].l}">${p.num}. ${esc(p.nombre)}${p.estado==='les'?' ✚':''}${p.estado==='lim'?' ◐':''}</button>`).join('') || '<span class="hint">Añade nombres en la plantilla de la sesión.</span>';
+  $('#pchips').querySelectorAll('[data-n]').forEach(b=>b.onclick=()=>{ ED.pend = ED.pend===b.dataset.n?null:b.dataset.n; renderPChips(); renderSel(); });
+}
+function saveEditor(){
+  const t=ED.t; t.series=Number(t.series)||1; t.minutos=Number(t.minutos)||0;
+  if(!t.titulo) t.titulo='Tarea sin título';
+  const arr = ED.ctx==='library' ? S.library : cur().tareas;
+  if(ED.isNew) arr[ED.ctx==='library'?'unshift':'push'](t);
+  else { const i=arr.findIndex(x=>x.id===t.id); if(i>=0) arr[i]=t; }
+  save(); const ctx=ED.ctx; closeEditor();
+  if(ctx==='library') renderLibList(); else renderTasks();
+}
+function blankTask(){ return {id:uid(), tipo:'of', titulo:'', series:1, minutos:10, espacio:'', jugadores:'', material:'', momentos:[], objetivos:'', descripcion:'', consignas:'', variantes:'', campo:'half', elementos:[]}; }
+
+/* ---------- impresión ---------- */
+function buildPrint(){
+  const s=cur();
+  const ros = s.roster.filter(p=>p.nombre||true).map(p=>`<div><b>${p.num}</b><span style="${p.estado==='les'||p.estado==='aus'?'text-decoration:line-through;color:#888':''}">${esc(p.nombre)}</span>${p.estado!=='disp'&&p.nombre?` <small>(${ESTADOS[p.estado].l})</small>`:''}</div>`).join('');
+  const tot = s.tareas.reduce((a,t)=>a+dur(t),0);
+  $('#print-area').innerHTML = `
+    <div class="ps-head">
+      <div class="ps-box big">${esc(s.categoria)}</div>
+      <div class="ps-box">SESIÓN ${esc(s.numero)}<small>${tot}′ de tareas</small></div>
+      <div class="ps-box">${esc(s.lugar)}</div>
+      <div class="ps-box" style="text-transform:uppercase">${esc(fechaLarga(s.fecha))}${s.hora?'<small>'+esc(s.hora)+'</small>':''}</div>
+    </div>
+    ${s.objetivo?`<div style="margin:0 0 8px;font-size:12px"><b>Objetivo de la sesión:</b> ${esc(s.objetivo)}</div>`:''}
+    <div class="ps-body">
+      <div class="ps-roster"><div style="font-weight:800;color:#7a2a8c;border:0">DISPONIBLES</div>${ros}</div>
+      <div class="ps-tasks">${s.tareas.map((t,i)=>`<div class="ps-task">
+        <div class="pt"><span class="n">TAREA ${i+1}</span><span style="font-weight:800">${durTxt(t)}</span><span class="ti">${esc(t.titulo)}</span>${badge(t.tipo)}</div>
+        ${thumbSVG(t)}
+        <div class="ps-obj">${t.jugadores?`<b>Jugadores:</b> ${esc(t.jugadores)}. `:''}${t.espacio?`<b>Espacio:</b> ${esc(t.espacio)}. `:''}${(t.momentos||[]).length?`<b>Situación:</b> ${esc(t.momentos.join(', '))}.`:''}</div>
+        ${t.objetivos?`<div class="ps-obj"><b>Objetivo:</b> ${esc(t.objetivos)}</div>`:''}
+        ${t.descripcion?`<div class="ps-obj"><b>Desarrollo:</b> ${esc(t.descripcion)}</div>`:''}
+        ${t.consignas?`<div class="ps-obj"><b>Consignas:</b> ${esc(t.consignas)}</div>`:''}
+      </div>`).join('')}</div>
+    </div>`;
+}
+
+/* ---------- general ---------- */
+function toast(msg){ const el=$('#saved'); el.textContent=msg; el.style.opacity=1; setTimeout(()=>{el.style.opacity=0; setTimeout(()=>el.textContent='Guardado ✓',400);},1600); }
+function show(v){
+  document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));
+  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  if(v==='library') renderLibrary(); if(v==='sessions') renderSessions(); if(v==='session') renderAllSession();
+  window.scrollTo(0,0);
+}
+function renderAllSession(){ renderHead(); renderRoster(); renderTasks(); }
+
+document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{ LIB_PICK=false; show(b.dataset.v); });
+$('#b-newtask').onclick=()=>openEditor(blankTask(),'session',true);
+$('#b-newlib').onclick=()=>openEditor(blankTask(),'library',true);
+$('#b-fromlib').onclick=()=>{ LIB_PICK=true; show('library'); };
+$('#b-newsess').onclick=newSession;
+$('#m-x').onclick=$('#m-cancel').onclick=()=>closeEditor();
+$('#m-save').onclick=saveEditor;
+$('#b-print').onclick=()=>{ buildPrint(); setTimeout(()=>window.print(),50); };
+$('#b-export').onclick=()=>{
+  const blob=new Blob([JSON.stringify(S,null,1)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`sesiones_seleccion_${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+};
+$('#b-import').onclick=()=>$('#f-import').click();
+$('#f-import').onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const rd=new FileReader(); rd.onload=()=>{
+    try{ const o=JSON.parse(rd.result); if(!o.sessions||!o.library) throw 0;
+      if(confirm('Se sustituirán las sesiones y la biblioteca actuales por las del archivo. ¿Continuar?')){ S=o; if(!cur()) S.currentId=S.sessions[0].id; save(); show('session'); }
+    }catch(err){ alert('El archivo no tiene el formato esperado.'); }
+    e.target.value='';
+  }; rd.readAsText(f);
+};
+window.addEventListener('beforeprint', buildPrint);
+
+load(); setupCanvas(); renderAllSession();
+</script>
+</body>
+</html>
